@@ -33,9 +33,9 @@ jobs:
       - name: Match the tag with VERSION
         run: |
           tag="${GITHUB_REF_NAME#v}"
-          version=$(sed -n "s/^VERSION='\([^']*\)'$/\1/p" bin/termux-keepalive)
+          version=$(sed -n "s/^VERSION='\([^']*\)'$/\1/p" bin/termux-sleepless)
           if [ -z "$version" ]; then
-            echo "error: could not read VERSION from bin/termux-keepalive" >&2
+            echo "error: could not read VERSION from bin/termux-sleepless" >&2
             exit 1
           fi
           if [ "$tag" != "$version" ]; then
@@ -82,8 +82,8 @@ jobs:
             Verify the download before installing:
 
             ```sh
-            sha256sum -c termux-keepalive-*.tar.gz.sha256
-            tar -xzf termux-keepalive-*.tar.gz
-            cd termux-keepalive-*/
+            sha256sum -c termux-sleepless-*.tar.gz.sha256
+            tar -xzf termux-sleepless-*.tar.gz
+            cd termux-sleepless-*/
             ./install.sh
             ```

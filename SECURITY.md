@@ -4,7 +4,7 @@
 
 The latest minor release receives fixes. Older releases are not patched; upgrade
 by unpacking the new release and running `./install.sh` again, then
-`termux-keepalive restart`.
+`termux-sleepless restart`.
 
 ## Reporting a vulnerability
 
@@ -14,7 +14,7 @@ or contact the maintainer [@nexw](https://github.com/nexw) privately.
 
 Include:
 
-- the version (`termux-keepalive version`),
+- the version (`termux-sleepless version`),
 - Termux and Android versions,
 - what the script can do that it should not, and how to reproduce it.
 
@@ -26,7 +26,7 @@ volunteer project, no bug bounty is available.
 This script runs with the normal Termux user ID and installs into `$PREFIX/bin`
 and `~/.termux/boot`. Reports about the following are in scope:
 
-- command injection or path handling issues in `bin/termux-keepalive` or
+- command injection or path handling issues in `bin/termux-sleepless` or
   `install.sh`,
 - unsafe file overwrites, symlink attacks or permission mistakes,
 - ways a local process could make the script run arbitrary code,

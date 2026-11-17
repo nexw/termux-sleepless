@@ -12,10 +12,11 @@ First public release.
 
 ### Added
 
-- `termux-keepalive` command with `start`, `stop`, `restart`, `status`,
+- `termux-sleepless` command with `start`, `stop`, `restart`, `status`,
   `logs`, `generate`, `install-boot`, `uninstall-boot`, `version` and `help`.
-- Silent 65-second PCM WAV (`insomnia-65s.wav`) generated on device with
+- Silent 65-second PCM WAV (`insomnia.wav`) generated on device with
   `printf` and `dd`, replayed every 60 seconds so consecutive tracks overlap.
+  The track is rebuilt when its size does not match the configured duration.
 - `flock`-based single instance, PID validation against `/proc/<pid>/cmdline`,
   per-call API timeouts, bounded log rotation and a managed boot entry that
   refuses to overwrite unowned files.
@@ -32,8 +33,8 @@ First public release.
 ### Changed
 
 - The worker now logs only state changes instead of every playback cycle.
-- The audio file name carries its duration, so a file from another version is
-  never reused.
+- `insomnia.wav` is validated by size, so a truncated file or one written for
+  a different duration is replaced instead of reused.
 - `stop` only stops the shared Termux:API player when its current track is the
   generated WAV.
 

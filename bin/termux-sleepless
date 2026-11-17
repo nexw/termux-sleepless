@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # SPDX-License-Identifier: MIT
 #
-# termux-keepalive - hold a wake lock and loop silent audio playback so that
+# termux-sleepless - hold a wake lock and loop silent audio playback so that
 # Termux is less likely to lose network access while the screen is off.
 #
 # This is not a Doze exemption and cannot override vendor power management.
@@ -29,10 +29,10 @@ if command -v readlink >/dev/null 2>&1; then
 fi
 unset resolved
 
-STATE_DIR="${TERMUX_KEEPALIVE_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/termux-keepalive}"
-BOOT_FILE="${TERMUX_KEEPALIVE_BOOT_FILE:-$HOME/.termux/boot/10-keepalive.sh}"
+STATE_DIR="${TERMUX_SLEEPLESS_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/termux-sleepless}"
+BOOT_FILE="${TERMUX_SLEEPLESS_BOOT_FILE:-$HOME/.termux/boot/10-sleepless.sh}"
 
-MANAGED_MARKER='# Managed by termux-keepalive'
+MANAGED_MARKER='# Managed by termux-sleepless'
 AUDIO_SECONDS=65
 PLAY_INTERVAL=60
 SAMPLE_RATE=8000
@@ -42,8 +42,8 @@ MAX_LOG_BYTES=1048576
 
 # The device is not allowed to sleep, so the track is named accordingly:
 # it is digital silence, and it keeps the media session alive.
-AUDIO="$STATE_DIR/insomnia-${AUDIO_SECONDS}s.wav"
-LOG="$STATE_DIR/keepalive.log"
+AUDIO="$STATE_DIR/insomnia.wav"
+LOG="$STATE_DIR/sleepless.log"
 LOCK="$STATE_DIR/lock"
 PIDFILE="$STATE_DIR/pid"
 
@@ -66,13 +66,13 @@ Commands:
   help              Print this help
 
 Environment:
-  TERMUX_KEEPALIVE_STATE_DIR  State directory
-                              (default: \$XDG_STATE_HOME/termux-keepalive or
-                              ~/.local/state/termux-keepalive)
-  TERMUX_KEEPALIVE_BOOT_FILE  Boot entry
-                              (default: ~/.termux/boot/10-keepalive.sh)
+  TERMUX_SLEEPLESS_STATE_DIR  State directory
+                              (default: \$XDG_STATE_HOME/termux-sleepless or
+                              ~/.local/state/termux-sleepless)
+  TERMUX_SLEEPLESS_BOOT_FILE  Boot entry
+                              (default: ~/.termux/boot/10-sleepless.sh)
 
-Docs: https://github.com/nexw/termux-keepalive
+Docs: https://github.com/nexw/termux-sleepless
 EOF
 }
 
@@ -92,14 +92,17 @@ le32() {
 
 # Write a mono PCM WAV of digital silence. Signed 16-bit zero samples are
 # exact silence, so no encoder and no extra package is required.
-# The file is named insomnia-<seconds>s.wav: a wink at the goal, and a
-# duration in the name so a file from another version is never reused.
+# The track is called insomnia.wav, because the device does not get to sleep.
+# A file of the wrong size (another duration, a truncated write) is replaced.
 make_audio() {
-    local bytes_per_frame data_size tmp
-    [[ -s $AUDIO ]] && return 0
+    local bytes_per_frame data_size expected_size tmp
     mkdir -p "$STATE_DIR"
     bytes_per_frame=$((SAMPLE_RATE * CHANNELS * BITS / 8))
     data_size=$((bytes_per_frame * AUDIO_SECONDS))
+    expected_size=$((44 + data_size))
+    if [[ -s $AUDIO ]] && (($(wc -c <"$AUDIO") == expected_size)); then
+        return 0
+    fi
     tmp="$AUDIO.tmp.$$"
     if {
         printf 'RIFF'

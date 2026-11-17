@@ -1,12 +1,12 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # SPDX-License-Identifier: MIT
 #
-# Install or remove the termux-keepalive command.
+# Install or remove the termux-sleepless command.
 
 set -eu
 
 PROGRAM=${0##*/}
-NAME=termux-keepalive
+NAME=termux-sleepless
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 DEST_DIR="$PREFIX/bin"
 ACTION=install
@@ -23,7 +23,7 @@ Options:
   --uninstall    Remove the installed command
   -h, --help     Print this help
 
-State and logs under ~/.local/state/termux-keepalive are never removed here.
+State and logs under ~/.local/state/termux-sleepless are never removed here.
 EOF
 }
 

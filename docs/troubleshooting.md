@@ -4,8 +4,8 @@ Start with the log. It records worker start, wake-lock failures, playback
 failures and exit reasons:
 
 ```sh
-termux-keepalive logs
-termux-keepalive logs -f
+termux-sleepless logs
+termux-sleepless logs -f
 ```
 
 ## `Missing commands: termux-media-player`
@@ -21,14 +21,14 @@ from F-Droid or GitHub. Termux and its add-ons must come from compatible
 signing sources; mixing the Play Store build with F-Droid add-ons does not
 work.
 
-## `Start failed; see ~/.local/state/termux-keepalive/keepalive.log`
+## `Start failed; see ~/.local/state/termux-sleepless/sleepless.log`
 
 The worker exited before it wrote its PID. Common causes:
 
 - `flock` or `timeout` is missing → `pkg install util-linux coreutils`.
 - The state directory is not writable.
 - A stale worker still holds the lock but its PID file was removed. Check with
-  `pgrep -af termux-keepalive`, stop the process, then start again.
+  `pgrep -af termux-sleepless`, stop the process, then start again.
 
 ## `status` says `Not running` but audio is still playing
 
@@ -38,8 +38,8 @@ The worker was killed without running its cleanup. Stop the orphan track:
 termux-media-player stop
 ```
 
-Then `termux-keepalive start` again. The worker only stops the player when the
-current track is its own `insomnia-*.wav`, to avoid interrupting unrelated
+Then `termux-sleepless start` again. The worker only stops the player when the
+current track is its own `insomnia.wav`, to avoid interrupting unrelated
 playback.
 
 ## Playback fails every minute
@@ -49,8 +49,8 @@ playback.
 - The generated file may have been deleted or truncated. Regenerate it:
 
 ```sh
-rm -f ~/.local/state/termux-keepalive/insomnia-*.wav
-termux-keepalive generate
+rm -f ~/.local/state/termux-sleepless/insomnia.wav
+termux-sleepless generate
 ```
 
 The `generate` command prints the path and should exit 0. The file is about
@@ -67,7 +67,7 @@ Check, in order:
 3. Doze is actually being entered (Android settings → Battery → Battery
    optimisation) and whether your OEM applies it to Termux regardless.
 4. The app is not being killed for memory. Look for a new worker PID after the
-   disconnect: `termux-keepalive status`, and compare with the log timestamps.
+   disconnect: `termux-sleepless status`, and compare with the log timestamps.
 
 No script can guarantee a connection on every device. Test on your own hardware
 before depending on it.
@@ -77,7 +77,7 @@ before depending on it.
 - Termux:Boot must be installed, opened at least once, and allowed to start at
   boot.
 - The boot entry must exist and be executable:
-  `ls -l ~/.termux/boot/10-keepalive.sh`.
+  `ls -l ~/.termux/boot/10-sleepless.sh`.
 - Termux must not be "force stopped"; the boot receiver stays disabled until
   the app is opened manually.
 - Some OEM systems delay or skip boot receivers until the device has been
@@ -98,17 +98,17 @@ nothing else depends on it.
 Rotation happens on the next `start`, once the log is larger than 1 MiB:
 
 ```sh
-termux-keepalive stop
-termux-keepalive start
-ls -l ~/.local/state/termux-keepalive/
+termux-sleepless stop
+termux-sleepless start
+ls -l ~/.local/state/termux-sleepless/
 ```
 
 ## Resetting everything
 
 ```sh
-termux-keepalive stop
-rm -rf ~/.local/state/termux-keepalive
-termux-keepalive start
+termux-sleepless stop
+rm -rf ~/.local/state/termux-sleepless
+termux-sleepless start
 ```
 
 This deletes the PID file, the lock, the log and the generated audio; the next

@@ -11,7 +11,7 @@ indent_size = 2
 [*.sh]
 indent_size = 4
 
-[bin/termux-keepalive]
+[bin/termux-sleepless]
 indent_size = 4
 
 [*.md]

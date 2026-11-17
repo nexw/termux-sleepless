@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 #
-# End-to-end tests for bin/termux-keepalive. The tests run anywhere bash,
+# End-to-end tests for bin/termux-sleepless. The tests run anywhere bash,
 # coreutils and mktemp exist (Linux CI and Termux). Termux:API is replaced by
 # a fake player, so no Android device is required.
 
 set -uo pipefail
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-KEEPALIVE="$ROOT/bin/termux-keepalive"
-VERSION=$(sed -n "s/^VERSION='\(.*\)'$/\1/p" "$KEEPALIVE")
+COMMAND="$ROOT/bin/termux-sleepless"
+VERSION=$(sed -n "s/^VERSION='\(.*\)'$/\1/p" "$COMMAND")
 
 tmpbase=${TMPDIR:-}
 if [[ -z $tmpbase || ! -d $tmpbase ]]; then
     if [[ -d /tmp ]]; then tmpbase=/tmp; else tmpbase=$PWD; fi
 fi
-TMP=$(mktemp -d "$tmpbase/termux-keepalive-test.XXXXXX")
+TMP=$(mktemp -d "$tmpbase/termux-sleepless-test.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
 
 FAKE_BIN="$TMP/bin"
@@ -102,12 +102,12 @@ chmod +x "$FAKE_BIN/termux-media-player" "$FAKE_BIN/termux-wake-lock"
 run() {
     HOME="$TEST_HOME" \
         PREFIX="$FAKE_PREFIX" \
-        TERMUX_KEEPALIVE_STATE_DIR="$STATE" \
-        TERMUX_KEEPALIVE_BOOT_FILE="$TEST_HOME/.termux/boot/10-keepalive.sh" \
+        TERMUX_SLEEPLESS_STATE_DIR="$STATE" \
+        TERMUX_SLEEPLESS_BOOT_FILE="$TEST_HOME/.termux/boot/10-sleepless.sh" \
         FAKE_CALLS="$CALLS" \
         FAKE_CURRENT="$CURRENT" \
         PATH="$FAKE_BIN:$PATH" \
-        "$KEEPALIVE" "$@"
+        "$COMMAND" "$@"
 }
 
 # Wait until a file contains a string, so tests never race the worker.
@@ -123,10 +123,10 @@ wait_for() {
 # --- version, help and argument handling ------------------------------------
 
 out=$(run version)
-check_eq 'version output' "termux-keepalive $VERSION" "$out"
+check_eq 'version output' "termux-sleepless $VERSION" "$out"
 
 out=$(run --version)
-check_eq '--version output' "termux-keepalive $VERSION" "$out"
+check_eq '--version output' "termux-sleepless $VERSION" "$out"
 
 run --help >/dev/null
 check_status '--help exits 0' 0 $?
@@ -134,7 +134,7 @@ out=$(run --help)
 check_contains 'help lists start' 'start' "$out"
 
 out=$(run help)
-check_contains 'help mentions state dir' 'TERMUX_KEEPALIVE_STATE_DIR' "$out"
+check_contains 'help mentions state dir' 'TERMUX_SLEEPLESS_STATE_DIR' "$out"
 
 out=$(run nonsense 2>&1)
 check_status 'unknown command exits 2' 2 $?
@@ -144,7 +144,7 @@ check_contains 'unknown command message' 'unknown command' "$out"
 
 wav=$(run generate)
 check_status 'generate exits 0' 0 $?
-check_eq 'generate prints the wav path' "$STATE/insomnia-65s.wav" "$wav"
+check_eq 'generate prints the wav path' "$STATE/insomnia.wav" "$wav"
 check_eq 'wav exists' 'yes' "$([[ -s $wav ]] && echo yes || echo no)"
 
 size=$(wc -c <"$wav")
@@ -172,6 +172,10 @@ run generate >/dev/null
 second=$(sha256sum "$wav" | cut -d' ' -f1)
 check_eq 'generate reuses an existing wav' "$first" "$second"
 
+printf 'x' >>"$wav"
+run generate >/dev/null
+check_eq 'generate repairs a wrong-sized wav' "$size" "$(wc -c <"$wav")"
+
 # --- status and start/stop --------------------------------------------------
 
 out=$(run status)
@@ -187,7 +191,7 @@ wait_for "$CALLS" 'wake-lock'
 check_contains 'worker requests the wake lock' 'wake-lock' "$(cat "$CALLS" 2>/dev/null)"
 
 wait_for "$CALLS" 'play'
-check_contains 'worker plays the wav' "media-player play $STATE/insomnia-65s.wav" "$(cat "$CALLS" 2>/dev/null)"
+check_contains 'worker plays the wav' "media-player play $STATE/insomnia.wav" "$(cat "$CALLS" 2>/dev/null)"
 
 out=$(run status)
 check_status 'status exits 0 when running' 0 $?
@@ -218,20 +222,20 @@ rm -f "$STATE/pid"
 
 out=$(
     export HOME="$TEST_HOME" PREFIX="$FAKE_PREFIX"
-    export TERMUX_KEEPALIVE_STATE_DIR="$STATE"
+    export TERMUX_SLEEPLESS_STATE_DIR="$STATE"
     export PATH=/usr/bin:/bin
-    "$KEEPALIVE" start 2>&1
+    "$COMMAND" start 2>&1
 )
 check_status 'start fails without termux-api' 1 $?
 check_contains 'start explains the missing dependency' 'termux-media-player' "$out"
 
 # --- boot entry -------------------------------------------------------------
 
-boot="$TEST_HOME/.termux/boot/10-keepalive.sh"
+boot="$TEST_HOME/.termux/boot/10-sleepless.sh"
 out=$(run install-boot)
 check_status 'install-boot exits 0' 0 $?
 check_contains 'install-boot reports the path' "$boot" "$out"
-check_contains 'boot entry is managed' '# Managed by termux-keepalive' "$(cat "$boot")"
+check_contains 'boot entry is managed' '# Managed by termux-sleepless' "$(cat "$boot")"
 check_contains 'boot entry starts the worker' '" start' "$(cat "$boot")"
 perms=$(stat -c '%a' "$boot" 2>/dev/null || stat -f '%Lp' "$boot")
 check_eq 'boot entry is executable' '700' "$perms"

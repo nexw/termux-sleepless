@@ -1,6 +1,6 @@
 SHELL := $(shell command -v bash 2>/dev/null || echo /bin/sh)
 
-NAME := termux-keepalive
+NAME := termux-sleepless
 VERSION := $(shell sed -n "s/^VERSION='\([^']*\)'$$/\1/p" bin/$(NAME))
 DIST_DIR := dist
 TARBALL := $(DIST_DIR)/$(NAME)-$(VERSION).tar.gz

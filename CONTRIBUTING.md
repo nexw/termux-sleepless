@@ -18,8 +18,8 @@ spirit.
 - `make` is convenient but not required; every target is a one-liner.
 
 ```sh
-git clone https://github.com/nexw/termux-keepalive.git
-cd termux-keepalive
+git clone https://github.com/nexw/termux-sleepless.git
+cd termux-sleepless
 make check                 # shellcheck + shfmt + tests
 bash tests/run-tests.sh    # tests only
 ```
@@ -52,17 +52,17 @@ audio, wake lock or boot entries. It must pass both on Linux and in Termux.
 
 ## Release process
 
-1. Bump `VERSION` in `bin/termux-keepalive` (single source of truth).
+1. Bump `VERSION` in `bin/termux-sleepless` (single source of truth).
 2. Move the `Unreleased` entries into a new `CHANGELOG.md` section dated today.
 3. Commit, then create and push an annotated tag:
 
    ```sh
-   git tag -a v1.2.3 -m 'termux-keepalive 1.2.3'
+   git tag -a v1.2.3 -m 'termux-sleepless 1.2.3'
    git push origin main v1.2.3
    ```
 
 4. The release workflow runs the linters and tests, checks that the tag matches
-   `VERSION`, builds `dist/termux-keepalive-1.2.3.tar.gz`, writes its
+   `VERSION`, builds `dist/termux-sleepless-1.2.3.tar.gz`, writes its
    `.sha256`, and publishes a GitHub release with generated notes.
 
 The tarball is built from the tagged commit by CI; do not attach locally built

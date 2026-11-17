@@ -1,16 +1,16 @@
-# termux-keepalive
+# termux-sleepless
 
-[![CI](https://github.com/nexw/termux-keepalive/actions/workflows/ci.yml/badge.svg)](https://github.com/nexw/termux-keepalive/actions/workflows/ci.yml)
-[![Release](https://github.com/nexw/termux-keepalive/actions/workflows/release.yml/badge.svg)](https://github.com/nexw/termux-keepalive/actions/workflows/release.yml)
+[![CI](https://github.com/nexw/termux-sleepless/actions/workflows/ci.yml/badge.svg)](https://github.com/nexw/termux-sleepless/actions/workflows/ci.yml)
+[![Release](https://github.com/nexw/termux-sleepless/actions/workflows/release.yml/badge.svg)](https://github.com/nexw/termux-sleepless/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Termux is great until the screen goes off. Android then suspends the CPU,
 freezes background work and cuts network access, so SSH sessions, bots and
 sync jobs die quietly.
 
-**termux-keepalive** is one Bash script that holds a wake lock and keeps a
+**termux-sleepless** is one Bash script that holds a wake lock and keeps a
 silent media session alive, which makes Termux far less likely to be put back
-to sleep. The silent track is called `insomnia-65s.wav`: 65 seconds of digital
+to sleep. The silent track is called `insomnia.wav`: 65 seconds of digital
 silence, generated on device without ffmpeg, Python or any extra package.
 
 > **Honest scope:** this is not a Doze exemption. It does not stop the system
@@ -50,12 +50,12 @@ silence, generated on device without ffmpeg, Python or any extra package.
 
 ```sh
 ver=1.0.0
-base="https://github.com/nexw/termux-keepalive/releases/download/v$ver"
-curl -fLO "$base/termux-keepalive-$ver.tar.gz"
-curl -fLO "$base/termux-keepalive-$ver.tar.gz.sha256"
-sha256sum -c "termux-keepalive-$ver.tar.gz.sha256"
-tar -xzf "termux-keepalive-$ver.tar.gz"
-cd "termux-keepalive-$ver"
+base="https://github.com/nexw/termux-sleepless/releases/download/v$ver"
+curl -fLO "$base/termux-sleepless-$ver.tar.gz"
+curl -fLO "$base/termux-sleepless-$ver.tar.gz.sha256"
+sha256sum -c "termux-sleepless-$ver.tar.gz.sha256"
+tar -xzf "termux-sleepless-$ver.tar.gz"
+cd "termux-sleepless-$ver"
 ./install.sh
 ```
 
@@ -63,28 +63,28 @@ cd "termux-keepalive-$ver"
 
 ```sh
 pkg install git
-git clone https://github.com/nexw/termux-keepalive.git
-cd termux-keepalive
+git clone https://github.com/nexw/termux-sleepless.git
+cd termux-sleepless
 ./install.sh
 ```
 
-`install.sh` copies the command to `$PREFIX/bin/termux-keepalive` (already in
+`install.sh` copies the command to `$PREFIX/bin/termux-sleepless` (already in
 `PATH`) and prints the next steps. Use `./install.sh --dir ~/.local/bin` for a
 different location, or `./install.sh --uninstall` to remove the command.
 
 You can also run the script without installing it:
 
 ```sh
-./bin/termux-keepalive start
+./bin/termux-sleepless start
 ```
 
 ## Usage
 
 ```sh
-termux-keepalive start      # start the background worker
-termux-keepalive status     # exit 0 when running, 1 when not
-termux-keepalive logs -f    # follow the log
-termux-keepalive stop       # stop the worker
+termux-sleepless start      # start the background worker
+termux-sleepless status     # exit 0 when running, 1 when not
+termux-sleepless logs -f    # follow the log
+termux-sleepless stop       # stop the worker
 ```
 
 | Command | Description |
@@ -95,20 +95,20 @@ termux-keepalive stop       # stop the worker
 | `status` | Print the state; exit code 0 only while running. |
 | `logs [-f]` | Print the last 100 lines, or follow with `-f`. |
 | `generate` | Write the silent WAV and print its path. |
-| `install-boot` | Install `~/.termux/boot/10-keepalive.sh`. |
+| `install-boot` | Install `~/.termux/boot/10-sleepless.sh`. |
 | `uninstall-boot` | Remove that boot entry. |
 | `version` | Print the version. |
 | `help` | Print usage. |
 
 State, log and the generated audio live in
-`~/.local/state/termux-keepalive/` (override with `TERMUX_KEEPALIVE_STATE_DIR`).
-The log is rotated to `keepalive.log.1` on the next `start` once it exceeds
+`~/.local/state/termux-sleepless/` (override with `TERMUX_SLEEPLESS_STATE_DIR`).
+The log is rotated to `sleepless.log.1` on the next `start` once it exceeds
 1 MiB.
 
 ### Autostart at boot
 
 ```sh
-termux-keepalive install-boot
+termux-sleepless install-boot
 ```
 
 Termux:Boot must be installed and opened once, and Termux must be allowed to
@@ -117,18 +117,18 @@ start at boot by the system. The boot entry only starts the background worker.
 ### Uninstall
 
 ```sh
-termux-keepalive stop
-termux-keepalive uninstall-boot
+termux-sleepless stop
+termux-sleepless uninstall-boot
 ./install.sh --uninstall
-rm -rf ~/.local/state/termux-keepalive
+rm -rf ~/.local/state/termux-sleepless
 ```
 
 ## Configuration
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `TERMUX_KEEPALIVE_STATE_DIR` | `$XDG_STATE_HOME/termux-keepalive` or `~/.local/state/termux-keepalive` | PID, lock, log and audio files. |
-| `TERMUX_KEEPALIVE_BOOT_FILE` | `~/.termux/boot/10-keepalive.sh` | Path written by `install-boot`. |
+| `TERMUX_SLEEPLESS_STATE_DIR` | `$XDG_STATE_HOME/termux-sleepless` or `~/.local/state/termux-sleepless` | PID, lock, log and audio files. |
+| `TERMUX_SLEEPLESS_BOOT_FILE` | `~/.termux/boot/10-sleepless.sh` | Path written by `install-boot`. |
 
 ## How it works, briefly
 
@@ -155,7 +155,7 @@ OEM "battery optimisation". Details and caveats:
 ```sh
 make check    # shellcheck + shfmt + tests
 make test     # bash tests/run-tests.sh
-make dist     # build dist/termux-keepalive-<version>.tar.gz + sha256
+make dist     # build dist/termux-sleepless-<version>.tar.gz + sha256
 ```
 
 The test suite replaces Termux:API with fakes, so it runs on Linux CI as well

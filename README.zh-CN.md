@@ -1,15 +1,15 @@
-# termux-keepalive
+# termux-sleepless
 
-[![CI](https://github.com/nexw/termux-keepalive/actions/workflows/ci.yml/badge.svg)](https://github.com/nexw/termux-keepalive/actions/workflows/ci.yml)
-[![Release](https://github.com/nexw/termux-keepalive/actions/workflows/release.yml/badge.svg)](https://github.com/nexw/termux-keepalive/actions/workflows/release.yml)
+[![CI](https://github.com/nexw/termux-sleepless/actions/workflows/ci.yml/badge.svg)](https://github.com/nexw/termux-sleepless/actions/workflows/ci.yml)
+[![Release](https://github.com/nexw/termux-sleepless/actions/workflows/release.yml/badge.svg)](https://github.com/nexw/termux-sleepless/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Termux 在熄屏后经常被系统挂起：CPU 休眠、后台被冻结、网络被切断，SSH、
 机器人和同步任务就这么静悄悄地断了。
 
-**termux-keepalive** 是一个 Bash 脚本：请求唤醒锁，并让一个静音媒体会话一直
+**termux-sleepless** 是一个 Bash 脚本：请求唤醒锁，并让一个静音媒体会话一直
 “在播放”，从而降低 Termux 被系统重新挂起的概率。那段静音文件叫
-`insomnia-65s.wav`——65 秒纯数字静音，在设备上直接生成，不需要 ffmpeg、
+`insomnia.wav`——65 秒纯数字静音，在设备上直接生成，不需要 ffmpeg、
 Python 或任何额外软件包。
 
 > **说清楚边界：** 这不是 Doze 网络豁免，也不能阻止系统杀进程或厂商的省电
@@ -47,12 +47,12 @@ English: [README.md](README.md)
 
 ```sh
 ver=1.0.0
-base="https://github.com/nexw/termux-keepalive/releases/download/v$ver"
-curl -fLO "$base/termux-keepalive-$ver.tar.gz"
-curl -fLO "$base/termux-keepalive-$ver.tar.gz.sha256"
-sha256sum -c "termux-keepalive-$ver.tar.gz.sha256"
-tar -xzf "termux-keepalive-$ver.tar.gz"
-cd "termux-keepalive-$ver"
+base="https://github.com/nexw/termux-sleepless/releases/download/v$ver"
+curl -fLO "$base/termux-sleepless-$ver.tar.gz"
+curl -fLO "$base/termux-sleepless-$ver.tar.gz.sha256"
+sha256sum -c "termux-sleepless-$ver.tar.gz.sha256"
+tar -xzf "termux-sleepless-$ver.tar.gz"
+cd "termux-sleepless-$ver"
 ./install.sh
 ```
 
@@ -60,28 +60,28 @@ cd "termux-keepalive-$ver"
 
 ```sh
 pkg install git
-git clone https://github.com/nexw/termux-keepalive.git
-cd termux-keepalive
+git clone https://github.com/nexw/termux-sleepless.git
+cd termux-sleepless
 ./install.sh
 ```
 
-`install.sh` 会把命令安装到 `$PREFIX/bin/termux-keepalive`（本来就在 `PATH`
+`install.sh` 会把命令安装到 `$PREFIX/bin/termux-sleepless`（本来就在 `PATH`
 里），并打印后续步骤。用 `--dir ~/.local/bin` 可以换目录，`--uninstall`
 可以卸载命令。
 
 也可以直接运行仓库里的脚本：
 
 ```sh
-./bin/termux-keepalive start
+./bin/termux-sleepless start
 ```
 
 ## 用法
 
 ```sh
-termux-keepalive start      # 启动后台 worker
-termux-keepalive status     # 运行中返回 0，未运行返回 1
-termux-keepalive logs -f    # 跟踪日志
-termux-keepalive stop       # 停止 worker
+termux-sleepless start      # 启动后台 worker
+termux-sleepless status     # 运行中返回 0，未运行返回 1
+termux-sleepless logs -f    # 跟踪日志
+termux-sleepless stop       # 停止 worker
 ```
 
 | 命令 | 说明 |
@@ -92,19 +92,19 @@ termux-keepalive stop       # 停止 worker
 | `status` | 打印状态；仅在运行中返回 0。 |
 | `logs [-f]` | 打印最近 100 行，`-f` 跟踪输出。 |
 | `generate` | 生成静音 WAV 并打印路径。 |
-| `install-boot` | 安装 `~/.termux/boot/10-keepalive.sh`。 |
+| `install-boot` | 安装 `~/.termux/boot/10-sleepless.sh`。 |
 | `uninstall-boot` | 删除该开机项。 |
 | `version` | 打印版本。 |
 | `help` | 打印帮助。 |
 
-状态、日志和生成的音频都在 `~/.local/state/termux-keepalive/`，可以用
-`TERMUX_KEEPALIVE_STATE_DIR` 覆盖。日志超过 1 MiB 时，会在下次 `start` 时
-轮转为 `keepalive.log.1`。
+状态、日志和生成的音频都在 `~/.local/state/termux-sleepless/`，可以用
+`TERMUX_SLEEPLESS_STATE_DIR` 覆盖。日志超过 1 MiB 时，会在下次 `start` 时
+轮转为 `sleepless.log.1`。
 
 ### 开机自启
 
 ```sh
-termux-keepalive install-boot
+termux-sleepless install-boot
 ```
 
 需要安装并打开过一次 Termux:Boot，且系统允许 Termux 开机启动。开机项只负责
@@ -113,18 +113,18 @@ termux-keepalive install-boot
 ### 卸载
 
 ```sh
-termux-keepalive stop
-termux-keepalive uninstall-boot
+termux-sleepless stop
+termux-sleepless uninstall-boot
 ./install.sh --uninstall
-rm -rf ~/.local/state/termux-keepalive
+rm -rf ~/.local/state/termux-sleepless
 ```
 
 ## 配置项
 
 | 变量 | 默认值 | 用途 |
 | --- | --- | --- |
-| `TERMUX_KEEPALIVE_STATE_DIR` | `$XDG_STATE_HOME/termux-keepalive` 或 `~/.local/state/termux-keepalive` | PID、锁、日志和音频所在目录。 |
-| `TERMUX_KEEPALIVE_BOOT_FILE` | `~/.termux/boot/10-keepalive.sh` | `install-boot` 写入的路径。 |
+| `TERMUX_SLEEPLESS_STATE_DIR` | `$XDG_STATE_HOME/termux-sleepless` 或 `~/.local/state/termux-sleepless` | PID、锁、日志和音频所在目录。 |
+| `TERMUX_SLEEPLESS_BOOT_FILE` | `~/.termux/boot/10-sleepless.sh` | `install-boot` 写入的路径。 |
 
 ## 原理简要
 
@@ -149,7 +149,7 @@ rm -rf ~/.local/state/termux-keepalive
 ```sh
 make check    # shellcheck + shfmt + 测试
 make test     # bash tests/run-tests.sh
-make dist     # 生成 dist/termux-keepalive-<version>.tar.gz 与 sha256
+make dist     # 生成 dist/termux-sleepless-<version>.tar.gz 与 sha256
 ```
 
 测试用假命令替代 Termux:API，因此在 Linux CI 和手机上都能跑。发版流程见

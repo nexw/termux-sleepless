@@ -34,10 +34,10 @@ jobs:
           shfmt --version
 
       - name: ShellCheck
-        run: shellcheck -x bin/termux-keepalive install.sh tests/run-tests.sh
+        run: shellcheck -x bin/termux-sleepless install.sh tests/run-tests.sh
 
       - name: shfmt
-        run: shfmt -d -i 4 -ci bin/termux-keepalive install.sh tests/run-tests.sh
+        run: shfmt -d -i 4 -ci bin/termux-sleepless install.sh tests/run-tests.sh
 
   test:
     name: Test
@@ -53,9 +53,9 @@ jobs:
         run: |
           tmp=$(mktemp -d)
           bash install.sh --prefix "$tmp"
-          "$tmp/bin/termux-keepalive" --version
+          "$tmp/bin/termux-sleepless" --version
           bash install.sh --prefix "$tmp" --uninstall
-          test ! -e "$tmp/bin/termux-keepalive"
+          test ! -e "$tmp/bin/termux-sleepless"
 
   package:
     name: Package
@@ -73,6 +73,6 @@ jobs:
 
       - name: Unpack the tarball and run its tests
         run: |
-          tar -xzf dist/termux-keepalive-*.tar.gz
-          cd termux-keepalive-*/
+          tar -xzf dist/termux-sleepless-*.tar.gz
+          cd termux-sleepless-*/
           bash tests/run-tests.sh

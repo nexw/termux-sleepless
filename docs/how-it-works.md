@@ -14,7 +14,7 @@ bot or sync job can stop receiving packets while the device sleeps.
 
 ## What the worker does
 
-`termux-keepalive start` launches a detached worker that:
+`termux-sleepless start` launches a detached worker that:
 
 1. takes the Termux app wake lock (`termux-wake-lock`),
 2. generates a silent WAV once, if it is missing,
@@ -27,14 +27,14 @@ stays quiet on a healthy device.
 
 ### The silent track
 
-The file is `insomnia-65s.wav` in the state directory. It is a mono PCM WAV:
+The file is `insomnia.wav` in the state directory. It is a mono PCM WAV:
 8000 Hz, 16-bit, one channel, 65 seconds, 1,040,044 bytes total.
 
 The 44-byte RIFF header is written with Bash `printf`, the samples with
 `dd if=/dev/zero`. In signed 16-bit PCM, zero is exactly digital silence, so the
 file needs no encoder. The header fields are computed from the constants in the
-script; the file name carries the duration, so a file from another version is
-never picked up by accident.
+script, and an existing file is reused only when its size matches the expected
+duration; anything else is regenerated on the next start.
 
 ### Why 65 seconds for a 60 second loop
 
@@ -88,7 +88,7 @@ some to the other, and some to neither.
 - Grant Termux the system battery-optimisation exemption, and allow background
   activity and autostart in the OEM settings if they exist.
 - Keep the device on a charger for overnight use, or accept the battery cost.
-- Watch `termux-keepalive logs -f` after the screen is off for a while; a
+- Watch `termux-sleepless logs -f` after the screen is off for a while; a
   worker that stops logging playback failures is not proof that the network
   stayed up.
 - Test your own device. Results vary by Android version, OEM and power state.

@@ -31,12 +31,12 @@ util-linux; `timeout` and `dd` come from coreutils.
 
 ```sh
 ver=1.0.0
-base="https://github.com/nexw/termux-keepalive/releases/download/v$ver"
-curl -fLO "$base/termux-keepalive-$ver.tar.gz"
-curl -fLO "$base/termux-keepalive-$ver.tar.gz.sha256"
-sha256sum -c "termux-keepalive-$ver.tar.gz.sha256"
-tar -xzf "termux-keepalive-$ver.tar.gz"
-cd "termux-keepalive-$ver"
+base="https://github.com/nexw/termux-sleepless/releases/download/v$ver"
+curl -fLO "$base/termux-sleepless-$ver.tar.gz"
+curl -fLO "$base/termux-sleepless-$ver.tar.gz.sha256"
+sha256sum -c "termux-sleepless-$ver.tar.gz.sha256"
+tar -xzf "termux-sleepless-$ver.tar.gz"
+cd "termux-sleepless-$ver"
 ./install.sh
 ```
 
@@ -47,8 +47,8 @@ The tarball is built by the release workflow from the tagged commit, and the
 
 ```sh
 pkg install git
-git clone https://github.com/nexw/termux-keepalive.git
-cd termux-keepalive
+git clone https://github.com/nexw/termux-sleepless.git
+cd termux-sleepless
 ./install.sh
 ```
 
@@ -65,19 +65,19 @@ The default destination is `$PREFIX/bin`, which is already on `PATH` in Termux.
 ### Without installing
 
 ```sh
-git clone https://github.com/nexw/termux-keepalive.git
-cd termux-keepalive
-./bin/termux-keepalive start
+git clone https://github.com/nexw/termux-sleepless.git
+cd termux-sleepless
+./bin/termux-sleepless start
 ```
 
-State and logs still go to `~/.local/state/termux-keepalive`.
+State and logs still go to `~/.local/state/termux-sleepless`.
 
 ## 3. Start it
 
 ```sh
-termux-keepalive start
-termux-keepalive status
-termux-keepalive logs -f
+termux-sleepless start
+termux-sleepless status
+termux-sleepless logs -f
 ```
 
 `start` returns once the worker is alive. If it fails, the message points at
@@ -86,15 +86,15 @@ the log; see [troubleshooting](troubleshooting.md).
 ## 4. Autostart (optional)
 
 ```sh
-termux-keepalive install-boot
+termux-sleepless install-boot
 ```
 
-This writes `~/.termux/boot/10-keepalive.sh`, which runs
-`termux-keepalive start`. It refuses to overwrite an existing file it does not
+This writes `~/.termux/boot/10-sleepless.sh`, which runs
+`termux-sleepless start`. It refuses to overwrite an existing file it does not
 manage. Remove it with:
 
 ```sh
-termux-keepalive uninstall-boot
+termux-sleepless uninstall-boot
 ```
 
 Boot scripts run without a terminal. If Termux reports that its boot receiver
@@ -119,7 +119,7 @@ again, or `git pull` and run `./install.sh`. The worker keeps running the old
 code until you restart it:
 
 ```sh
-termux-keepalive restart
+termux-sleepless restart
 ```
 
 The state directory survives upgrades. A generated audio file whose name does
@@ -129,10 +129,10 @@ next start.
 ## Uninstalling
 
 ```sh
-termux-keepalive stop
-termux-keepalive uninstall-boot
+termux-sleepless stop
+termux-sleepless uninstall-boot
 ./install.sh --uninstall
-rm -rf ~/.local/state/termux-keepalive
+rm -rf ~/.local/state/termux-sleepless
 ```
 
 `stop` leaves the app wake lock alone, because other Termux services may use
