@@ -1,0 +1,1 @@
+package android.content; public abstract class Context { public abstract Context createPackageContext(String s,int f) throws Exception; public abstract Intent registerReceiver(BroadcastReceiver r,IntentFilter f); }

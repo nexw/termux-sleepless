@@ -1,0 +1,1 @@
+package android.content; public class IntentFilter { public IntentFilter() {} public final void addAction(String s) {} }

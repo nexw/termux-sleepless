@@ -1,0 +1,8 @@
+# Generated Java/DEX artifacts and runtime state
+build/
+*.class
+*.dex
+*.log
+*.pid
+*.wav
+*.amr

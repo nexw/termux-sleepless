@@ -1,0 +1,137 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# Keep Termux awake and periodically play PCM silence. No ffmpeg required.
+set -eu
+export PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+export HOME="${HOME:-/data/data/com.termux/files/home}"
+export PATH="$PREFIX/bin:/system/bin"
+SELF="$HOME/.local/bin/termux-keepalive"
+STATE="$HOME/.local/state/termux-keepalive"
+AUDIO="$STATE/silence-60s.wav"
+BOOT="$HOME/.termux/boot/10-keepalive.sh"
+mkdir -p "$STATE"
+umask 077
+
+make_audio() {
+    [[ -s "$AUDIO" ]] && return 0
+    local tmp="$AUDIO.tmp.$$"
+    # RIFF: 960036 bytes; PCM mono, 8000 Hz, 16 bits, 960000-byte data.
+    # Signed PCM zero samples are exact digital silence.
+    if {
+        printf 'RIFF\044\246\016\000WAVEfmt \020\000\000\000\001\000\001\000\100\037\000\000\200\076\000\000\002\000\020\000data\000\246\016\000'
+        dd if=/dev/zero bs=16000 count=60 2>/dev/null
+    } > "$tmp"; then
+        mv -f "$tmp" "$AUDIO"
+    else
+        rm -f "$tmp"
+        return 1
+    fi
+}
+
+running() {
+    local pid
+    [[ -r "$STATE/pid" ]] || return 1
+    read -r pid < "$STATE/pid"
+    [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+    kill -0 "$pid" 2>/dev/null || return 1
+    # Do not signal a recycled PID belonging to a different process.
+    [[ -r "/proc/$pid/cmdline" ]] || return 1
+    grep -azFxq "$SELF" "/proc/$pid/cmdline" 2>/dev/null &&
+        grep -azFxq '_run' "/proc/$pid/cmdline" 2>/dev/null
+}
+
+cleanup() {
+    trap - EXIT INT TERM
+    if [[ -n "${sleeper:-}" ]]; then
+        kill "$sleeper" 2>/dev/null || true
+        wait "$sleeper" 2>/dev/null || true
+    fi
+    # Termux:API has one shared media player: don't stop unrelated playback.
+    if timeout 5 termux-media-player info 9>&- 2>/dev/null | grep -Fq 'Track: silence-60s.wav'; then
+        timeout 5 termux-media-player stop 9>&- >/dev/null 2>&1 || true
+    fi
+    rm -f "$STATE/pid"
+    # Deliberately retain the app-wide wake lock: other services use it too.
+}
+
+case "${1:-start}" in
+    _run)
+        exec 9>"$STATE/lock"
+        flock -n 9 || exit 0
+        echo "$$" > "$STATE/pid"
+        sleeper=''
+        trap cleanup EXIT
+        trap 'exit 0' INT TERM
+        make_audio
+        printf '\n[%s] worker started: pid=%s\n' "$(date -Is)" "$$"
+        timeout 15 termux-wake-lock 9>&- || echo 'WARNING: wake-lock failed'
+        while :; do
+            # API replies when playback starts, not when the track finishes.
+            if output=$(timeout 15 termux-media-player play "$AUDIO" 9>&- 2>&1); then
+                :
+            else
+                printf '[%s] playback failed; retry in 60 seconds: %s\n' "$(date -Is)" "$output"
+            fi
+            sleep 60 9>&- &
+            sleeper=$!
+            wait "$sleeper" || true
+            sleeper=''
+        done
+        ;;
+    start)
+        if running; then
+            echo "Already running (PID $(<"$STATE/pid"))."
+            exit 0
+        fi
+        command -v termux-media-player >/dev/null || { echo 'Install termux-api and the Termux:API Android app.' >&2; exit 1; }
+        # Keep the previous session log, bound growth between restarts.
+        if [[ -f "$STATE/keepalive.log" ]] && (( $(wc -c < "$STATE/keepalive.log") > 1048576 )); then
+            mv -f "$STATE/keepalive.log" "$STATE/keepalive.log.1"
+        fi
+        nohup "$SELF" _run </dev/null >>"$STATE/keepalive.log" 2>&1 &
+        for ((i=0; i<30; i++)); do
+            if running; then echo "Started (PID $(<"$STATE/pid"))."; exit 0; fi
+            sleep 0.1
+        done
+        echo "Start failed; see $STATE/keepalive.log" >&2
+        exit 1
+        ;;
+    stop)
+        if running; then
+            read -r pid < "$STATE/pid"
+            kill -TERM "$pid"
+            for ((i=0; i<150; i++)); do
+                if ! running; then echo 'Stopped; shared wake lock retained.'; exit 0; fi
+                sleep 0.1
+            done
+            echo 'Still stopping (API call may be waiting); check status/log.' >&2
+            exit 1
+        fi
+        echo 'Not running.'
+        ;;
+    status)
+        if running; then echo "Running (PID $(<"$STATE/pid"))."; else echo 'Not running.'; exit 1; fi
+        ;;
+    generate)
+        make_audio
+        echo "$AUDIO"
+        ;;
+    install-boot)
+        mkdir -p "${BOOT%/*}"
+        if [[ -e "$BOOT" ]] && ! grep -Fq '# Managed by termux-keepalive' "$BOOT"; then
+            echo "Refusing to overwrite unmanaged file: $BOOT" >&2
+            exit 1
+        fi
+        printf '#!%s/bin/sh\n# Managed by termux-keepalive\n"%s" start\n' "$PREFIX" "$SELF" > "$BOOT"
+        chmod 700 "$BOOT"
+        echo "Installed: $BOOT"
+        echo 'Termux:Boot must be installed and opened once; this does not start playback now.'
+        ;;
+    uninstall-boot)
+        if [[ -f "$BOOT" ]] && grep -Fq '# Managed by termux-keepalive' "$BOOT"; then rm -f "$BOOT"; fi
+        echo 'Boot autostart removed; current worker unchanged.'
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|status|generate|install-boot|uninstall-boot}"
+        exit 2
+        ;;
+esac
