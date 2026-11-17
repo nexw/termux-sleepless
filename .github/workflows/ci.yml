@@ -53,7 +53,7 @@ jobs:
         run: |
           tmp=$(mktemp -d)
           bash install.sh --prefix "$tmp"
-          "$tmp/bin/termux-sleepless" --version
+          bash "$tmp/bin/termux-sleepless" --version
           bash install.sh --prefix "$tmp" --uninstall
           test ! -e "$tmp/bin/termux-sleepless"
 

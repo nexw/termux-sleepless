@@ -1,6 +1,10 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # SPDX-License-Identifier: MIT
 #
+# The shebang is the Termux bash path on purpose: it is what makes the script
+# executable on a device without relying on termux-exec. On another system run
+# it as `bash bin/termux-sleepless`, as the tests do.
+#
 # termux-sleepless - hold a wake lock and loop silent audio playback so that
 # Termux is less likely to lose network access while the screen is off.
 #
@@ -216,7 +220,9 @@ cmd_start() {
     require_commands || return 1
     mkdir -p "$STATE_DIR"
     rotate_log
-    nohup "$SELF" _run </dev/null >>"$LOG" 2>&1 &
+    # Re-exec through bash explicitly, so the worker does not depend on the
+    # Termux shebang being resolvable (the test suite runs on Linux too).
+    nohup "${BASH:-bash}" "$SELF" _run </dev/null >>"$LOG" 2>&1 &
     for ((i = 0; i < 50; i++)); do
         if running; then
             printf 'Started (pid %s).\n' "$(read_pid)"
@@ -280,7 +286,7 @@ cmd_install_boot() {
     cat >"$BOOT_FILE" <<EOF
 #!$PREFIX/bin/sh
 $MANAGED_MARKER
-"$SELF" start
+"$PREFIX/bin/bash" "$SELF" start
 EOF
     chmod 700 "$BOOT_FILE"
     printf 'Installed: %s\n' "$BOOT_FILE"

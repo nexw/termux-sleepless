@@ -107,7 +107,7 @@ run() {
         FAKE_CALLS="$CALLS" \
         FAKE_CURRENT="$CURRENT" \
         PATH="$FAKE_BIN:$PATH" \
-        "$COMMAND" "$@"
+        bash "$COMMAND" "$@"
 }
 
 # Wait until a file contains a string, so tests never race the worker.
@@ -224,7 +224,7 @@ out=$(
     export HOME="$TEST_HOME" PREFIX="$FAKE_PREFIX"
     export TERMUX_SLEEPLESS_STATE_DIR="$STATE"
     export PATH=/usr/bin:/bin
-    "$COMMAND" start 2>&1
+    "${BASH:-bash}" "$COMMAND" start 2>&1
 )
 check_status 'start fails without termux-api' 1 $?
 check_contains 'start explains the missing dependency' 'termux-media-player' "$out"
