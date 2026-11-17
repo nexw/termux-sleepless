@@ -1,58 +1,166 @@
-# termux-net-keepalive
+# termux-keepalive
 
-Termux 熄屏网络保活实验：通过唤醒锁和静音音频播放，尝试缓解 Android／厂商电源策略导致的后台网络中断。
+[![CI](https://github.com/nexw/termux-keepalive/actions/workflows/ci.yml/badge.svg)](https://github.com/nexw/termux-keepalive/actions/workflows/ci.yml)
+[![Release](https://github.com/nexw/termux-keepalive/actions/workflows/release.yml/badge.svg)](https://github.com/nexw/termux-keepalive/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**当前是现有实现与实验的归档，尚未接入“熄屏播放／亮屏停止”。不保证获得 Doze 豁免。**
+Termux is great until the screen goes off. Android then suspends the CPU,
+freezes background work and cuts network access, so SSH sessions, bots and
+sync jobs die quietly.
 
-## 目录
+**termux-keepalive** is one Bash script that holds a wake lock and keeps a
+silent media session alive, which makes Termux far less likely to be put back
+to sleep. The silent track is called `insomnia-65s.wav`: 65 seconds of digital
+silence, generated on device without ffmpeg, Python or any extra package.
 
-- `scripts/termux-keepalive`：当前已部署脚本的快照，支持 start / stop / status / generate / install-boot / uninstall-boot。
-- `experimental/screen-probe/`：以 app_process 运行的 Java 显示状态监听实验及编译桩。
-- `docs/findings.md`：机制、实测结果和下一步。
-- `docs/current-installation.md`：当前设备上现有安装的操作说明。
+> **Honest scope:** this is not a Doze exemption. It does not stop the system
+> from killing Termux, and it cannot override vendor battery managers. It works
+> by keeping the app visibly busy. Please read
+> [docs/how-it-works.md](docs/how-it-works.md) before relying on it.
 
-仓库名采用 termux-net-keepalive；现有脚本名暂保留 termux-keepalive，避免此次归档改变已部署行为。
+中文说明：[README.zh-CN.md](README.zh-CN.md)
 
-## 当前保活脚本
+## Features
 
-运行环境：Termux Bash、coreutils、flock、termux-api 命令，以及 Android Termux:API 插件。
-开机自启另外需要 Termux:Boot，安装后打开一次并允许后台运行。
+- One self-contained Bash script, no daemon framework and no runtime wrapper.
+- `start` / `stop` / `restart` / `status` / `logs` / `generate`, plus
+  `install-boot` / `uninstall-boot` for autostart.
+- Single instance via `flock`; the liveness check matches the worker command
+  line, so a recycled PID is never signalled.
+- Own state directory, bounded log rotation and API timeouts on every call.
+- Silent WAV written with `printf` + `dd`: no encoder, no ~1 MB dependency
+  chain, and no audio files checked into git.
+- Optional boot entry that refuses to overwrite files it does not own.
+- ShellCheck- and shfmt-clean, tested on every push and release.
 
-现有脚本按固定部署位置自调用，因此不要直接在仓库里执行 start 或 install-boot：
+## Requirements
+
+- Termux installed from [F-Droid](https://f-droid.org/packages/com.termux/) or
+  the [GitHub releases](https://github.com/termux/termux-app/releases) — the
+  Play Store build is deprecated and cannot use the add-ons.
+- `termux-api`, `coreutils` and `util-linux` packages
+  (`pkg install termux-api coreutils util-linux`).
+- The [Termux:API](https://f-droid.org/packages/com.termux.api/) app installed.
+- Optional: [Termux:Boot](https://f-droid.org/packages/com.termux.boot/) for
+  autostart, opened once after installation.
+
+## Install
+
+### From a release tarball
 
 ```sh
-mkdir -p ~/.local/bin
-install -m 700 scripts/termux-keepalive ~/.local/bin/termux-keepalive
-~/.local/bin/termux-keepalive start
-~/.local/bin/termux-keepalive status
-# 可选，写入 ~/.termux/boot/10-keepalive.sh：
-~/.local/bin/termux-keepalive install-boot
+ver=1.0.0
+base="https://github.com/nexw/termux-keepalive/releases/download/v$ver"
+curl -fLO "$base/termux-keepalive-$ver.tar.gz"
+curl -fLO "$base/termux-keepalive-$ver.tar.gz.sha256"
+sha256sum -c "termux-keepalive-$ver.tar.gz.sha256"
+tar -xzf "termux-keepalive-$ver.tar.gz"
+cd "termux-keepalive-$ver"
+./install.sh
 ```
 
-音频通过 Bash printf 和 dd 直接生成 60 秒 PCM WAV，不需要 ffmpeg、Python、Node。
-stop 不释放 Termux app 级共享唤醒锁，避免影响其他服务。
-播放器是 Termux:API 共用资源，运行期间会覆盖通过它发起的其他播放。
-
-## 构建和运行屏幕状态实验
-
-需要本机已有的 JDK 与 d8（默认使用 $PREFIX/share/java/d8.jar）。
-编译桩只用于编译，不包含在最终 DEX 中；运行时使用 Android 系统类。
+### From source
 
 ```sh
-bash experimental/screen-probe/build.sh
-# 前台监听 15 分钟，按 Ctrl-C 退出：
-bash experimental/screen-probe/listen.sh
+pkg install git
+git clone https://github.com/nexw/termux-keepalive.git
+cd termux-keepalive
+./install.sh
 ```
 
-实验只打印事件，不控制音频、电源或网络。
-默认屏幕 id=0：1=OFF、2=ON、3=DOZE、4=DOZE_SUSPEND。
-Display 的 DOZE 状态不等于设备的 Doze 省电状态。
+`install.sh` copies the command to `$PREFIX/bin/termux-keepalive` (already in
+`PATH`) and prints the next steps. Use `./install.sh --dir ~/.local/bin` for a
+different location, or `./install.sh --uninstall` to remove the command.
 
-已在当前 Android 16 小米设备上实测收到 OFF → ON。
-SCREEN_OFF/ON 广播注册仅用于诊断，系统返回的过滤器为空，不能视为成功注册。
-短时测试通过不代表长期后台稳定或其他 Android 版本兼容。
+You can also run the script without installing it:
 
-## 部署状态
+```sh
+./bin/termux-keepalive start
+```
 
-创建仓库时未修改现有 ~/.local/bin、.zshrc 或 Boot 入口；也未创建远端。
-生成音频、PID、日志、构建产物不进入版本控制。
+## Usage
+
+```sh
+termux-keepalive start      # start the background worker
+termux-keepalive status     # exit 0 when running, 1 when not
+termux-keepalive logs -f    # follow the log
+termux-keepalive stop       # stop the worker
+```
+
+| Command | Description |
+| --- | --- |
+| `start` | Start the worker (default command). Idempotent. |
+| `stop` | Stop the worker and the silent track it started. |
+| `restart` | `stop` then `start`. |
+| `status` | Print the state; exit code 0 only while running. |
+| `logs [-f]` | Print the last 100 lines, or follow with `-f`. |
+| `generate` | Write the silent WAV and print its path. |
+| `install-boot` | Install `~/.termux/boot/10-keepalive.sh`. |
+| `uninstall-boot` | Remove that boot entry. |
+| `version` | Print the version. |
+| `help` | Print usage. |
+
+State, log and the generated audio live in
+`~/.local/state/termux-keepalive/` (override with `TERMUX_KEEPALIVE_STATE_DIR`).
+The log is rotated to `keepalive.log.1` on the next `start` once it exceeds
+1 MiB.
+
+### Autostart at boot
+
+```sh
+termux-keepalive install-boot
+```
+
+Termux:Boot must be installed and opened once, and Termux must be allowed to
+start at boot by the system. The boot entry only starts the background worker.
+
+### Uninstall
+
+```sh
+termux-keepalive stop
+termux-keepalive uninstall-boot
+./install.sh --uninstall
+rm -rf ~/.local/state/termux-keepalive
+```
+
+## Configuration
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `TERMUX_KEEPALIVE_STATE_DIR` | `$XDG_STATE_HOME/termux-keepalive` or `~/.local/state/termux-keepalive` | PID, lock, log and audio files. |
+| `TERMUX_KEEPALIVE_BOOT_FILE` | `~/.termux/boot/10-keepalive.sh` | Path written by `install-boot`. |
+
+## How it works, briefly
+
+1. `termux-wake-lock` holds the shared Termux app wake lock.
+2. A 65-second PCM WAV of exact silence is generated once, with a fixed
+   44-byte header and zero samples.
+3. The worker asks Termux:API to play it and repeats every 60 seconds, so the
+   track overlaps itself instead of leaving a gap.
+
+What that buys you is an app that never looks idle. What it does not buy you is
+a network exemption, immunity from the low-memory killer, or protection from
+OEM "battery optimisation". Details and caveats:
+[docs/how-it-works.md](docs/how-it-works.md).
+
+## Documentation
+
+- [Installation](docs/installation.md)
+- [How it works and what it cannot do](docs/how-it-works.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Changelog](CHANGELOG.md)
+
+## Development
+
+```sh
+make check    # shellcheck + shfmt + tests
+make test     # bash tests/run-tests.sh
+make dist     # build dist/termux-keepalive-<version>.tar.gz + sha256
+```
+
+The test suite replaces Termux:API with fakes, so it runs on Linux CI as well
+as on a device. See [CONTRIBUTING.md](CONTRIBUTING.md) for the release process.
+
+## License
+
+[MIT](LICENSE)
