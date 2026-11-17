@@ -1,0 +1,351 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# SPDX-License-Identifier: MIT
+#
+# termux-keepalive - hold a wake lock and loop silent audio playback so that
+# Termux is less likely to lose network access while the screen is off.
+#
+# This is not a Doze exemption and cannot override vendor power management.
+# See docs/how-it-works.md for the details and the known limits.
+
+set -eu
+
+VERSION='1.0.0'
+
+PROGRAM=${0##*/}
+
+PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+HOME="${HOME:-/data/data/com.termux/files/home}"
+export PATH="$PREFIX/bin:$PATH"
+export HOME
+
+umask 077
+
+# Resolve the real path of this script: the worker re-executes itself and the
+# liveness check compares that path against /proc/<pid>/cmdline.
+SELF=${BASH_SOURCE[0]}
+if command -v readlink >/dev/null 2>&1; then
+    resolved=$(readlink -f -- "$SELF" 2>/dev/null || true)
+    [[ -n $resolved ]] && SELF=$resolved
+fi
+unset resolved
+
+STATE_DIR="${TERMUX_KEEPALIVE_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/termux-keepalive}"
+BOOT_FILE="${TERMUX_KEEPALIVE_BOOT_FILE:-$HOME/.termux/boot/10-keepalive.sh}"
+
+MANAGED_MARKER='# Managed by termux-keepalive'
+AUDIO_SECONDS=65
+PLAY_INTERVAL=60
+SAMPLE_RATE=8000
+CHANNELS=1
+BITS=16
+MAX_LOG_BYTES=1048576
+
+# The device is not allowed to sleep, so the track is named accordingly:
+# it is digital silence, and it keeps the media session alive.
+AUDIO="$STATE_DIR/insomnia-${AUDIO_SECONDS}s.wav"
+LOG="$STATE_DIR/keepalive.log"
+LOCK="$STATE_DIR/lock"
+PIDFILE="$STATE_DIR/pid"
+
+usage() {
+    cat <<EOF
+$PROGRAM $VERSION - keep a Termux session reachable with the screen off
+
+Usage: $PROGRAM [command]
+
+Commands:
+  start             Start the background worker (default)
+  stop              Stop the worker
+  restart           Stop, then start
+  status            Print the worker state; exit 0 when running
+  logs [-f]         Print the last log lines, or follow the log
+  generate          Write the silent WAV and print its path
+  install-boot      Install the Termux:Boot autostart entry
+  uninstall-boot    Remove the Termux:Boot autostart entry
+  version           Print the version
+  help              Print this help
+
+Environment:
+  TERMUX_KEEPALIVE_STATE_DIR  State directory
+                              (default: \$XDG_STATE_HOME/termux-keepalive or
+                              ~/.local/state/termux-keepalive)
+  TERMUX_KEEPALIVE_BOOT_FILE  Boot entry
+                              (default: ~/.termux/boot/10-keepalive.sh)
+
+Docs: https://github.com/nexw/termux-keepalive
+EOF
+}
+
+log() {
+    printf '[%s] %s\n' "$(date -Is)" "$*"
+}
+
+le16() {
+    printf '\\x%02x\\x%02x' $(($1 & 0xff)) $((($1 >> 8) & 0xff))
+}
+
+le32() {
+    printf '\\x%02x\\x%02x\\x%02x\\x%02x' \
+        $(($1 & 0xff)) $((($1 >> 8) & 0xff)) \
+        $((($1 >> 16) & 0xff)) $((($1 >> 24) & 0xff))
+}
+
+# Write a mono PCM WAV of digital silence. Signed 16-bit zero samples are
+# exact silence, so no encoder and no extra package is required.
+# The file is named insomnia-<seconds>s.wav: a wink at the goal, and a
+# duration in the name so a file from another version is never reused.
+make_audio() {
+    local bytes_per_frame data_size tmp
+    [[ -s $AUDIO ]] && return 0
+    mkdir -p "$STATE_DIR"
+    bytes_per_frame=$((SAMPLE_RATE * CHANNELS * BITS / 8))
+    data_size=$((bytes_per_frame * AUDIO_SECONDS))
+    tmp="$AUDIO.tmp.$$"
+    if {
+        printf 'RIFF'
+        printf '%b' "$(le32 $((36 + data_size)))"
+        printf 'WAVEfmt '
+        printf '%b' "$(le32 16)"
+        printf '%b' "$(le16 1)" # PCM
+        printf '%b' "$(le16 "$CHANNELS")"
+        printf '%b' "$(le32 "$SAMPLE_RATE")"
+        printf '%b' "$(le32 "$bytes_per_frame")"       # byte rate
+        printf '%b' "$(le16 $((CHANNELS * BITS / 8)))" # block align
+        printf '%b' "$(le16 "$BITS")"
+        printf 'data'
+        printf '%b' "$(le32 "$data_size")"
+        dd if=/dev/zero bs="$bytes_per_frame" count="$AUDIO_SECONDS" 2>/dev/null
+    } >"$tmp"; then
+        mv -f "$tmp" "$AUDIO"
+    else
+        rm -f "$tmp"
+        return 1
+    fi
+}
+
+read_pid() {
+    local pid
+    [[ -r $PIDFILE ]] || return 1
+    read -r pid <"$PIDFILE" || return 1
+    [[ $pid =~ ^[0-9]+$ ]] || return 1
+    printf '%s' "$pid"
+}
+
+# A live worker is a process whose command line holds both this script path
+# and the internal _run argument, so a recycled PID is never signalled.
+running() {
+    local pid
+    pid=$(read_pid) || return 1
+    kill -0 "$pid" 2>/dev/null || return 1
+    [[ -r /proc/$pid/cmdline ]] || return 1
+    grep -azFxq "$SELF" "/proc/$pid/cmdline" 2>/dev/null &&
+        grep -azFxq '_run' "/proc/$pid/cmdline" 2>/dev/null
+}
+
+require_commands() {
+    local cmd missing=''
+    for cmd in flock timeout dd termux-media-player; do
+        command -v "$cmd" >/dev/null 2>&1 || missing+=" $cmd"
+    done
+    if [[ -n $missing ]]; then
+        printf 'Missing commands:%s\n' "$missing" >&2
+        printf 'Install them with: pkg install termux-api coreutils util-linux\n' >&2
+        return 1
+    fi
+}
+
+rotate_log() {
+    if [[ -f $LOG ]] && (($(wc -c <"$LOG") > MAX_LOG_BYTES)); then
+        mv -f "$LOG" "$LOG.1"
+    fi
+}
+
+# Referenced through trap only, never called directly.
+# shellcheck disable=SC2329
+cleanup() {
+    trap - EXIT INT TERM
+    if [[ -n ${sleeper:-} ]]; then
+        kill "$sleeper" 2>/dev/null || true
+        wait "$sleeper" 2>/dev/null || true
+    fi
+    # Termux:API has a single shared player: do not stop unrelated playback.
+    if timeout 5 termux-media-player info 9>&- 2>/dev/null |
+        grep -Fq "Track: ${AUDIO##*/}"; then
+        timeout 5 termux-media-player stop 9>&- >/dev/null 2>&1 || true
+    fi
+    rm -f "$PIDFILE"
+    # The Termux app wake lock is shared with other services: keep it.
+}
+
+worker() {
+    exec 9>"$LOCK"
+    flock -n 9 || exit 0
+    printf '%s\n' "$$" >"$PIDFILE"
+    sleeper=''
+    trap cleanup EXIT
+    trap 'exit 0' INT TERM
+    make_audio || log 'WARNING: could not generate the silent WAV'
+    log "worker started (pid $$)"
+    if timeout 15 termux-wake-lock 9>&- >/dev/null 2>&1; then
+        log 'wake lock requested'
+    else
+        log 'WARNING: wake lock request failed'
+    fi
+    while :; do
+        # The API returns when playback starts, not when the track ends, so a
+        # 65 second track is restarted every 60 seconds to avoid an audible
+        # (and, more importantly, an activity) gap.
+        if ! output=$(timeout 15 termux-media-player play "$AUDIO" 9>&- 2>&1); then
+            log "playback failed; retrying in ${PLAY_INTERVAL}s: $output"
+        fi
+        sleep "$PLAY_INTERVAL" 9>&- &
+        sleeper=$!
+        wait "$sleeper" || true
+        sleeper=''
+    done
+}
+
+cmd_start() {
+    if running; then
+        printf 'Already running (pid %s).\n' "$(read_pid)"
+        return 0
+    fi
+    require_commands || return 1
+    mkdir -p "$STATE_DIR"
+    rotate_log
+    nohup "$SELF" _run </dev/null >>"$LOG" 2>&1 &
+    for ((i = 0; i < 50; i++)); do
+        if running; then
+            printf 'Started (pid %s).\n' "$(read_pid)"
+            return 0
+        fi
+        sleep 0.1
+    done
+    printf 'Start failed; see %s\n' "$LOG" >&2
+    return 1
+}
+
+cmd_stop() {
+    local pid
+    if ! running; then
+        printf 'Not running.\n'
+        return 0
+    fi
+    pid=$(read_pid)
+    kill -TERM "$pid" 2>/dev/null || true
+    for ((i = 0; i < 150; i++)); do
+        if ! running; then
+            printf 'Stopped; shared wake lock retained.\n'
+            return 0
+        fi
+        sleep 0.1
+    done
+    printf 'Still stopping (an API call may be waiting); check status and logs.\n' >&2
+    return 1
+}
+
+cmd_restart() {
+    cmd_stop && cmd_start
+}
+
+cmd_status() {
+    if running; then
+        printf 'Running (pid %s).\n' "$(read_pid)"
+        return 0
+    fi
+    printf 'Not running.\n'
+    return 1
+}
+
+cmd_logs() {
+    if [[ ! -f $LOG ]]; then
+        printf 'No log yet: %s\n' "$LOG" >&2
+        return 1
+    fi
+    case "${1:-}" in
+        -f | --follow) tail -n 50 -f "$LOG" ;;
+        *) tail -n 100 "$LOG" ;;
+    esac
+}
+
+cmd_install_boot() {
+    if [[ -e $BOOT_FILE ]] && ! grep -Fq "$MANAGED_MARKER" "$BOOT_FILE"; then
+        printf 'Refusing to overwrite unmanaged file: %s\n' "$BOOT_FILE" >&2
+        return 1
+    fi
+    mkdir -p "${BOOT_FILE%/*}"
+    cat >"$BOOT_FILE" <<EOF
+#!$PREFIX/bin/sh
+$MANAGED_MARKER
+"$SELF" start
+EOF
+    chmod 700 "$BOOT_FILE"
+    printf 'Installed: %s\n' "$BOOT_FILE"
+    printf 'Termux:Boot must be installed and opened once; nothing was started now.\n'
+}
+
+cmd_uninstall_boot() {
+    if [[ -f $BOOT_FILE ]] && grep -Fq "$MANAGED_MARKER" "$BOOT_FILE"; then
+        rm -f "$BOOT_FILE"
+        printf 'Removed: %s\n' "$BOOT_FILE"
+    else
+        printf 'No managed boot entry at %s.\n' "$BOOT_FILE"
+    fi
+}
+
+main() {
+    local cmd=${1:-start}
+    case $cmd in
+        -h | --help) cmd=help ;;
+        -V | --version) cmd=version ;;
+        help | start | stop | restart | status | logs | generate | version | install-boot | uninstall-boot) ;;
+        _run)
+            worker
+            return 0
+            ;;
+        *)
+            printf '%s: unknown command: %s\n\n' "$PROGRAM" "$cmd" >&2
+            usage >&2
+            return 2
+            ;;
+    esac
+
+    case $cmd in
+        help)
+            usage
+            ;;
+        version)
+            printf '%s %s\n' "$PROGRAM" "$VERSION"
+            ;;
+        start)
+            cmd_start
+            ;;
+        stop)
+            cmd_stop
+            ;;
+        restart)
+            cmd_restart
+            ;;
+        status)
+            cmd_status
+            ;;
+        logs)
+            shift
+            cmd_logs "$@"
+            ;;
+        generate)
+            make_audio || return 1
+            printf '%s\n' "$AUDIO"
+            ;;
+        install-boot)
+            cmd_install_boot
+            ;;
+        uninstall-boot)
+            cmd_uninstall_boot
+            ;;
+    esac
+}
+
+rc=0
+main "$@" || rc=$?
+exit "$rc"
