@@ -1,0 +1,75 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please include the log excerpt and the exact
+        version, otherwise the issue usually cannot be reproduced.
+
+  - type: input
+    id: version
+    attributes:
+      label: termux-sleepless version
+      description: Output of `termux-sleepless version`
+      placeholder: termux-sleepless 1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Android version, device model, Termux source (F-Droid or GitHub)
+      placeholder: Android 16, Xiaomi ..., Termux 0.118.3 from F-Droid
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. termux-sleepless start
+        2. turn the screen off
+        3. wait 10 minutes
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: |
+        Output of `termux-sleepless status` and `termux-sleepless logs`.
+        Remove anything private first.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I read docs/troubleshooting.md.
+          required: true
+        - label: I tested with the latest release.
+          required: true
+        - label: I removed private data (paths, hostnames, tokens) from the logs.
+          required: true

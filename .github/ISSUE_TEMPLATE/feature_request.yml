@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest a change that fits the project's scope
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This project deliberately stays small: one Bash script, no root, no new
+        runtime dependencies unless there is a strong reason. Requests that
+        need a Doze exemption, kill protection or OEM battery settings cannot
+        be implemented in a script.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that the current version cannot?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Commands, flags or behaviour you have in mind
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This can work as the normal Termux user, without root.
+          required: true
+        - label: This does not require new runtime packages, or the reason is explained above.
+          required: true
