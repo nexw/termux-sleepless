@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/nexw/termux-keepalive/blob/main/docs/installation.md
+    about: Installation, design notes and troubleshooting.
+  - name: Report a security issue
+    url: https://github.com/nexw/termux-keepalive/security/advisories/new
+    about: Please report vulnerabilities privately, not in a public issue.

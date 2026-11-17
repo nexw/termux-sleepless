@@ -1,8 +1,18 @@
-# Generated Java/DEX artifacts and runtime state
+# Runtime state and generated artifacts
 build/
+dist/
 *.class
 *.dex
 *.log
+*.log.1
 *.pid
 *.wav
 *.amr
+*.tar.gz
+*.sha256
+
+# Editor and OS noise
+.DS_Store
+*.swp
+.idea/
+.vscode/
