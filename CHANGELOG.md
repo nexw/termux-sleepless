@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Documentation: the README keeps the one-line install, features, usage,
+  configuration and design summary; the detailed install steps live in
+  `docs/installation.md`. The Chinese README was removed.
+
 ## [1.0.0] - 2026-11-17
 
 First public release.
@@ -33,8 +39,8 @@ First public release.
 - GitHub Actions: CI on every push and pull request, and a release workflow
   that verifies the tag against `VERSION`, builds the tarball, publishes its
   SHA-256 checksum and attaches both to the GitHub release.
-- English and Chinese READMEs, installation, design and troubleshooting docs,
-  contribution guide, security policy and code of conduct.
+- README, installation, design and troubleshooting docs, contribution guide,
+  security policy and code of conduct.
 
 ### Changed
 

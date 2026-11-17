@@ -11,14 +11,12 @@ sync jobs die quietly.
 **termux-sleepless** is one Bash script that holds a wake lock and keeps a
 silent media session alive, which makes Termux far less likely to be put back
 to sleep. The silent track is called `insomnia.wav`: 65 seconds of digital
-silence, generated on device without ffmpeg, Python or any extra package.
+silence.
 
 > **Honest scope:** this is not a Doze exemption. It does not stop the system
 > from killing Termux, and it cannot override vendor battery managers. It works
 > by keeping the app visibly busy. Please read
 > [docs/how-it-works.md](docs/how-it-works.md) before relying on it.
-
-中文说明：[README.zh-CN.md](README.zh-CN.md)
 
 ## Features
 
@@ -27,9 +25,7 @@ silence, generated on device without ffmpeg, Python or any extra package.
   `install-boot` / `uninstall-boot` for autostart.
 - Single instance via `flock`; the liveness check matches the worker command
   line, so a recycled PID is never signalled.
-- Own state directory, bounded log rotation and API timeouts on every call.
-- Silent WAV written with `printf` + `dd`: no encoder, no ~1 MB dependency
-  chain, and no audio files checked into git.
+- Silent WAV written with `printf` + `dd`, no encoder.
 - Optional boot entry that refuses to overwrite files it does not own.
 - ShellCheck- and shfmt-clean, tested on every push and release.
 
@@ -50,48 +46,12 @@ silence, generated on device without ffmpeg, Python or any extra package.
 ### One-line install
 
 ```sh
+# latest release
 curl -fsSL https://raw.githubusercontent.com/nexw/termux-sleepless/refs/heads/main/install.sh | bash
-```
 
-The installer reads the latest release tag, downloads
-`termux-sleepless-<version>.tar.gz`, verifies its published SHA-256, and copies
-the command into `$PREFIX/bin`. Pin a specific release with:
-
-```sh
+# pin a release
 curl -fsSL https://raw.githubusercontent.com/nexw/termux-sleepless/refs/heads/main/install.sh |
     bash -s -- --release v1.0.0
-```
-
-### Manual release download
-
-```sh
-ver=1.0.0
-base="https://github.com/nexw/termux-sleepless/releases/download/v$ver"
-curl -fLO "$base/termux-sleepless-$ver.tar.gz"
-curl -fLO "$base/termux-sleepless-$ver.tar.gz.sha256"
-sha256sum -c "termux-sleepless-$ver.tar.gz.sha256"
-tar -xzf "termux-sleepless-$ver.tar.gz"
-cd "termux-sleepless-$ver"
-./install.sh
-```
-
-### From source
-
-```sh
-pkg install git
-git clone https://github.com/nexw/termux-sleepless.git
-cd termux-sleepless
-./install.sh
-```
-
-`install.sh` copies the command to `$PREFIX/bin/termux-sleepless` (already in
-`PATH`) and prints the next steps. Use `./install.sh --dir ~/.local/bin` for a
-different location, or `./install.sh --uninstall` to remove the command.
-
-You can also run the script without installing it:
-
-```sh
-./bin/termux-sleepless start
 ```
 
 ## Usage
@@ -135,7 +95,8 @@ start at boot by the system. The boot entry only starts the background worker.
 ```sh
 termux-sleepless stop
 termux-sleepless uninstall-boot
-./install.sh --uninstall
+curl -fsSL https://raw.githubusercontent.com/nexw/termux-sleepless/refs/heads/main/install.sh |
+    bash -s -- --uninstall
 rm -rf ~/.local/state/termux-sleepless
 ```
 
@@ -145,37 +106,6 @@ rm -rf ~/.local/state/termux-sleepless
 | --- | --- | --- |
 | `TERMUX_SLEEPLESS_STATE_DIR` | `$XDG_STATE_HOME/termux-sleepless` or `~/.local/state/termux-sleepless` | PID, lock, log and audio files. |
 | `TERMUX_SLEEPLESS_BOOT_FILE` | `~/.termux/boot/10-sleepless.sh` | Path written by `install-boot`. |
-
-## How it works, briefly
-
-1. `termux-wake-lock` holds the shared Termux app wake lock.
-2. A 65-second PCM WAV of exact silence is generated once, with a fixed
-   44-byte header and zero samples.
-3. The worker asks Termux:API to play it and repeats every 60 seconds, so the
-   track overlaps itself instead of leaving a gap.
-
-What that buys you is an app that never looks idle. What it does not buy you is
-a network exemption, immunity from the low-memory killer, or protection from
-OEM "battery optimisation". Details and caveats:
-[docs/how-it-works.md](docs/how-it-works.md).
-
-## Documentation
-
-- [Installation](docs/installation.md)
-- [How it works and what it cannot do](docs/how-it-works.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Changelog](CHANGELOG.md)
-
-## Development
-
-```sh
-make check    # shellcheck + shfmt + tests
-make test     # bash tests/run-tests.sh
-make dist     # build dist/termux-sleepless-<version>.tar.gz + sha256
-```
-
-The test suite replaces Termux:API with fakes, so it runs on Linux CI as well
-as on a device. See [CONTRIBUTING.md](CONTRIBUTING.md) for the release process.
 
 ## License
 

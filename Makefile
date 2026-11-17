@@ -12,7 +12,6 @@ SOURCES := \
 	docs/how-it-works.md \
 	docs/troubleshooting.md \
 	README.md \
-	README.zh-CN.md \
 	LICENSE \
 	CHANGELOG.md
 
@@ -37,7 +36,7 @@ $(TARBALL): $(SOURCES)
 	tar --create --gzip --file $@ \
 		--sort=name --owner=0 --group=0 --numeric-owner \
 		--transform 's,^,$(NAME)-$(VERSION)/,' \
-		bin install.sh tests docs README.md README.zh-CN.md LICENSE CHANGELOG.md
+		bin install.sh tests docs README.md LICENSE CHANGELOG.md
 	cd $(DIST_DIR) && sha256sum $(NAME)-$(VERSION).tar.gz > $(NAME)-$(VERSION).tar.gz.sha256
 
 install:
